@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mira — Wellness Companion (Print)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&family=Instrument+Sans:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css?v=2" />
+<style>
+  /* ── Print-specific overrides ───────────────────────────────────── */
+  @page {
+    size: landscape;
+    margin: 0.4cm;
+  }
+
+  /* Force backgrounds & colors to print */
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  html, body {
+    background: #fff !important;
+    height: auto !important;
+  }
+
+  /* Hide Tweaks panel + ambient gradient + any animations */
+  .twk-panel { display: none !important; }
+  .app-bg { display: none !important; }
+  .msg, .welcome-orb, .brand-orb, .msg-orb { animation: none !important; }
+  .caret { display: none !important; }
+
+  /* The deploy-bg wraps everything; flatten it for print */
+  .deploy-bg {
+    display: block !important;
+    background: #fff !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+  .caheruc-site {
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    border: 0 !important;
+    page-break-inside: avoid;
+  }
+
+  /* The cr-page is the chat host area; let it size to content */
+  .cr-page {
+    height: auto !important;
+    min-height: 0 !important;
+  }
+  .cr-chat-host {
+    overflow: visible !important;
+    min-height: 540px;
+  }
+
+  /* The .app uses 100vh — switch to auto for print so nothing clips */
+  .app {
+    height: auto !important;
+    min-height: 540px;
+  }
+
+  /* Sidebar topics list shouldn't scroll, just lay out fully */
+  .topics { overflow: visible !important; flex: none !important; }
+  .sidebar { height: auto !important; }
+
+  /* Thread - show all messages without scroll */
+  .thread {
+    overflow: visible !important;
+    height: auto !important;
+    padding: 18px 22px 8px !important;
+  }
+  .thread-inner { gap: 16px !important; }
+
+  /* Composer wrap — show but don't fix to bottom */
+  .composer-wrap {
+    background: transparent !important;
+    padding: 6px 22px 14px !important;
+  }
+
+  /* Avoid splitting messages across pages */
+  .msg, .qpr-card, .cite-panel { break-inside: avoid; page-break-inside: avoid; }
+
+  /* Page sections */
+  .print-page {
+    page-break-after: always;
+    break-after: page;
+  }
+  .print-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+
+  /* Print header for page 1 */
+  .print-meta {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 6px 4px 10px;
+    font: 11px/1.4 'Inter Tight', sans-serif;
+    color: oklch(0.5 0.012 250);
+    border-bottom: 0.5px solid oklch(0.92 0.008 250);
+    margin-bottom: 8px;
+  }
+  .print-meta b {
+    font-family: 'Instrument Sans', sans-serif;
+    font-weight: 500;
+    color: oklch(0.24 0.012 250);
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script src="data.js?v=3"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="app.jsx"></script>
+
+<!-- Print orchestration: pre-seed a sample conversation, then fire window.print() -->
+<script type="text/babel">
+(async () => {
+  // Wait for fonts
+  if (document.fonts && document.fonts.ready) {
+    try { await document.fonts.ready; } catch(_) {}
+  }
+  // Wait for React to mount root
+  const waitForMount = () => new Promise(resolve => {
+    const check = () => {
+      if (document.querySelector('.caheruc-site .app')) resolve();
+      else setTimeout(check, 60);
+    };
+    check();
+  });
+  await waitForMount();
+
+  // Seed a realistic conversation by simulating the composer submit.
+  const fire = (text) => {
+    const ta = document.querySelector('.composer textarea');
+    const send = document.querySelector('.composer .send');
+    if (!ta || !send) return false;
+    const proto = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+    proto.call(ta, text);
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    send.click();
+    return true;
+  };
+  fire("I've been feeling low for weeks. How do I tell if it's depression?");
+
+  // Wait for streaming to finish (no .caret in thread)
+  const waitDone = () => new Promise(resolve => {
+    const tick = () => {
+      const streaming = document.querySelector('.thread .caret');
+      const hasReply = document.querySelector('.msg.bot .bubble');
+      if (!streaming && hasReply) resolve();
+      else setTimeout(tick, 100);
+    };
+    setTimeout(tick, 300);
+  });
+  await waitDone();
+
+  // Expand the first citation panel for print credibility
+  const firstCite = document.querySelector('.msg.bot .citations .cite');
+  if (firstCite) firstCite.click();
+
+  // Final settle, then print
+  setTimeout(() => window.print(), 700);
+})();
+</script>
+</body>
+</html>
